@@ -1,0 +1,208 @@
+#!/bin/bash
+
+SAVE_FILE="fps_save.dat"
+
+# Game state
+room=1
+health=3
+weapon="Pistol"
+ammo=6
+max_ammo=6
+has_shotgun=0
+shotgun_ammo=2
+boss_mode=0
+
+function save_game() {
+    echo "$room|$health|$weapon|$ammo|$has_shotgun|$shotgun_ammo" > "$SAVE_FILE"
+}
+
+function load_game() {
+    if [[ -f $SAVE_FILE ]]; then
+        IFS="|" read room health weapon ammo has_shotgun shotgun_ammo < "$SAVE_FILE"
+    else
+        echo "❌ No save file found. Starting new game."
+    fi
+}
+
+function draw_health() {
+    case $health in
+        3) echo -e "Health: \033[1;32m❤️ ❤️ ❤️\033[0m" ;;
+        2) echo -e "Health: \033[1;33m❤️ ❤️ 💔\033[0m" ;;
+        1) echo -e "Health: \033[1;31m❤️ 💔 💔\033[0m" ;;
+        *) echo -e "Health: \033[1;31m💀 Dead\033[0m" ;;
+    esac
+}
+
+function draw_room() {
+    clear
+    echo "╔════════════════════════════════════════╗"
+    echo "║          FPS BASH v0.3                ║"
+    echo "╚════════════════════════════════════════╝"
+    echo "Room: $room"
+    draw_health
+    echo "Weapon: $weapon"
+    echo "Ammo: $ammo"
+    if [[ $has_shotgun -eq 1 ]]; then
+        echo "Shotgun Ammo: $shotgun_ammo"
+    fi
+    echo ""
+
+    if [[ $boss_mode -eq 1 ]]; then
+        echo -e "🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥"
+        echo -e "🟥   👹  BOSS ROOM  👹   🟥"
+        echo -e "🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥"
+    else
+        case $((room % 4)) in
+            1) echo "You enter a dim corridor..." ;;
+            2) echo "You find an old storage room..." ;;
+            3) echo "You stumble into an abandoned armory..." ;;
+            0) echo "A silent hallway echoes with distant sounds..." ;;
+        esac
+    fi
+
+    echo ""
+    echo "Actions: [f] Forward  [s] Shoot  [r] Reload  [w] Switch Weapon  [q] Quit"
+    echo ""
+}
+
+function boss_battle() {
+    echo "👹 A BOSS BLOCKS YOUR PATH!"
+    boss_health=3
+    boss_name="The Overbeast"
+
+    while [[ $boss_health -gt 0 ]]; do
+        draw_room
+        echo "Boss: $boss_name | Health: $boss_health ❤️‍🔥"
+        read -n1 -p "Attack [s] or Quit [q]: " b_action
+        echo ""
+
+        if [[ $b_action == "s" ]]; then
+            if [[ $weapon == "Pistol" ]]; then
+                if [[ $ammo -gt 0 ]]; then
+                    echo "💥 You shoot the boss!"
+                    ((boss_health--))
+                    ((ammo--))
+                else
+                    echo "🔫 You're out of pistol ammo!"
+                fi
+            elif [[ $weapon == "Shotgun" ]]; then
+                if [[ $shotgun_ammo -gt 0 ]]; then
+                    echo "💥 BOOM! Shotgun hits the boss hard!"
+                    ((boss_health--))
+                    ((shotgun_ammo--))
+                else
+                    echo "🔫 Shotgun empty!"
+                fi
+            fi
+
+            # Boss attacks back
+            echo "💢 The boss slams you!"
+            ((health--))
+            if [[ $health -le 0 ]]; then
+                echo "☠️  You were killed by $boss_name!"
+                rm -f "$SAVE_FILE"
+                exit
+            fi
+        elif [[ $b_action == "q" ]]; then
+            echo "👋 Exiting."
+            save_game
+            exit
+        fi
+        sleep 1
+    done
+
+    echo "🏆 You defeated $boss_name!"
+    sleep 1
+}
+
+function reload_weapon() {
+    if [[ $weapon == "Pistol" ]]; then
+        echo "🔄 Reloading pistol..."
+        ammo=$max_ammo
+    elif [[ $weapon == "Shotgun" ]]; then
+        echo "🔄 Reloading shotgun..."
+        shotgun_ammo=2
+    fi
+    sleep 1
+}
+
+function switch_weapon() {
+    if [[ $has_shotgun -eq 1 ]]; then
+        if [[ $weapon == "Pistol" ]]; then
+            weapon="Shotgun"
+            echo "🔁 Switched to Shotgun"
+        else
+            weapon="Pistol"
+            echo "🔁 Switched to Pistol"
+        fi
+    else
+        echo "❌ You don't have a shotgun yet."
+    fi
+    sleep 1
+}
+
+function advance_room() {
+    ((room++))
+    if [[ $room -eq 3 && $has_shotgun -eq 0 ]]; then
+        echo "🔧 You found a SHOTGUN in the armory!"
+        has_shotgun=1
+        sleep 1
+    fi
+
+    # Boss room logic
+    if [[ $room -eq 5 || $room -eq 10 ]]; then
+        boss_mode=1
+        boss_battle
+        boss_mode=0
+    fi
+}
+
+function main_loop() {
+    while true; do
+        draw_room
+        read -n1 -p "Enter action: " action
+        echo ""
+        case $action in
+            f) advance_room ;;
+            s)
+                if [[ $weapon == "Pistol" && $ammo -le 0 ]]; then
+                    echo "🔫 Out of pistol ammo!"
+                elif [[ $weapon == "Shotgun" && $shotgun_ammo -le 0 ]]; then
+                    echo "🔫 Out of shotgun shells!"
+                else
+                    echo "💥 You fire into the room... nothing happens."
+                    if [[ $weapon == "Pistol" ]]; then
+                        ((ammo--))
+                    else
+                        ((shotgun_ammo--))
+                    fi
+                fi
+                ;;
+            r) reload_weapon ;;
+            w) switch_weapon ;;
+            q)
+                echo "💾 Saving game..."
+                save_game
+                echo "👋 Goodbye!"
+                exit
+                ;;
+            *) echo "❓ Unknown action" ;;
+        esac
+        sleep 1
+    done
+}
+
+# ==== GAME START ====
+clear
+echo "🎮 FPS BASH v0.3"
+if [[ -f "$SAVE_FILE" ]]; then
+    echo "📂 Save file detected."
+    read -p "Load save? (y/n): " load
+    if [[ "$load" == "y" ]]; then
+        load_game
+    fi
+else
+    echo "🔄 Starting new game."
+fi
+
+main_loop
