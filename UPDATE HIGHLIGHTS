@@ -1,0 +1,18 @@
+🆕 v0.3 Highlights:
+🌍 Room-Focused Exploration
+
+Rooms have unique types: Corridor, Storage, Armory, Boss Lair
+
+You progress room-by-room instead of racking up kills
+
+👹 Boss Battles
+
+Bosses appear in Room 5 and 10
+
+Boss enemies are larger, more deadly, and have ASCII representation
+
+💾 Save/Load System
+
+Your progress is saved to a file: fps_save.dat
+
+Load on start or reset progress
